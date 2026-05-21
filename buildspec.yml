@@ -1,38 +1,28 @@
 version: 0.2
 
-env:
-  variables:
-    NODE_ENV: "production"
-
 phases:
   install:
-    runtime-versions:
-      nodejs: 20
     commands:
-      - echo "Installing dependencies..."
+      - echo "Installing Node.js 20..."
+      - curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+      - yum install -y nodejs
+      - echo "Node version: $(node -v)"
+      - echo "NPM version: $(npm -v)"
       - npm install
-
-  pre_build:
-    commands:
-      - echo "Running linter..."
-      - npm run lint || true
-      - echo "Pre-build checks done on $(date)"
 
   build:
     commands:
-      - echo "Building the React app with Vite..."
+      - echo "Building..."
       - npm run build
-      - echo "Build completed on $(date)"
 
   post_build:
     commands:
-      - echo "Build successful! Artifacts ready in dist/"
+      - echo "Build successful!"
 
 artifacts:
   files:
     - '**/*'
   base-directory: dist
-  discard-paths: no
 
 cache:
   paths:
