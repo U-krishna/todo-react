@@ -3,10 +3,7 @@ version: 0.2
 phases:
   install:
     commands:
-      - echo "Node: $(node -v)"
-      - echo "NPM: $(npm -v)"
       - npm install
-
   build:
     commands:
       - npm run build
@@ -15,6 +12,7 @@ artifacts:
   files:
     - '**/*'
   base-directory: dist
+
 cache:
   paths:
-    - node_modules/**/* 
+    - node_modules/**/*
