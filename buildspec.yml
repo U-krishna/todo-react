@@ -1,0 +1,39 @@
+version: 0.2
+
+env:
+  variables:
+    NODE_ENV: "production"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Installing dependencies..."
+      - npm install
+
+  pre_build:
+    commands:
+      - echo "Running linter..."
+      - npm run lint || true
+      - echo "Pre-build checks done on $(date)"
+
+  build:
+    commands:
+      - echo "Building the React app with Vite..."
+      - npm run build
+      - echo "Build completed on $(date)"
+
+  post_build:
+    commands:
+      - echo "Build successful! Artifacts ready in dist/"
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: dist
+  discard-paths: no
+
+cache:
+  paths:
+    - 'node_modules/**/*'
