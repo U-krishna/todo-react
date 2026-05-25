@@ -1,0 +1,46 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-east-1
+    CLUSTER_NAME: todo-react-eks
+    DEPLOYMENT_NAME: todo-react
+    CONTAINER_NAME: todo-react
+    K8S_NAMESPACE: default
+    IMAGE_REPO_NAME: todo-react
+
+phases:
+  install:
+    runtime-versions:
+      kubectl: latest
+    commands:
+      - echo Install phase started on $(date)
+      - curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.0/2024-01-04/bin/linux/amd64/kubectl
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+
+  pre_build:
+    commands:
+      - echo Configuring kubeconfig for EKS...
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - IMAGE_URI=$REPOSITORY_URI:$IMAGE_TAG
+      - echo Deploying image $IMAGE_URI
+
+  build:
+    commands:
+      - echo Updating Kubernetes deployment image...
+      - kubectl set image deployment/$DEPLOYMENT_NAME $CONTAINER_NAME=$IMAGE_URI -n $K8S_NAMESPACE
+      - echo Waiting for rollout to complete...
+      - kubectl rollout status deployment/$DEPLOYMENT_NAME -n $K8S_NAMESPACE --timeout=300s
+
+  post_build:
+    commands:
+      - echo Verifying pods...
+      - kubectl get pods -n $K8S_NAMESPACE
+      - echo Verifying services...
+      - kubectl get svc -n $K8S_NAMESPACE
+      - echo Deploy completed on $(date)
