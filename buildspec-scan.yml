@@ -27,17 +27,7 @@ phases:
   build:
     commands:
       - echo "Running Trivy scan in container..."
-      - |
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v /root/.cache:/root/.cache \
-          public.ecr.aws/aquasecurity/trivy:${TRIVY_VERSION} image \
-          --no-progress \
-          --scanners vuln \
-          --db-repository public.ecr.aws/aquasecurity/trivy-db:2 \
-          --exit-code 1 \
-          --severity ${FAIL_SEVERITIES} \
-          "$IMAGE_URI"
+      - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /root/.cache:/root/.cache public.ecr.aws/aquasecurity/trivy:${TRIVY_VERSION} image --no-progress --scanners vuln --db-repository public.ecr.aws/aquasecurity/trivy-db:2 --exit-code 1 --severity ${FAIL_SEVERITIES} "$IMAGE_URI"
 
   post_build:
     commands:
