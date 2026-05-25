@@ -11,20 +11,19 @@ phases:
     commands:
       - 'echo "Scan phase started on $(date)"'
       - aws --version
-      - curl -LO https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.rpm
-      - rpm -i trivy_${TRIVY_VERSION}_Linux-64bit.rpm
-      - trivy --version
+      - docker version
 
   pre_build:
     commands:
       - 'echo "Reading image metadata..."'
       - export IMAGE_URI=$(python3 -c "import json; print(json.load(open('imageDetail.json'))['ImageURI'])")
       - 'echo "Image to scan: $IMAGE_URI"'
+      - docker pull aquasec/trivy:${TRIVY_VERSION}
 
   build:
     commands:
-      - 'echo "Running Trivy scan..."'
-      - trivy image --no-progress --exit-code 1 --severity ${FAIL_SEVERITIES} "$IMAGE_URI"
+      - 'echo "Running Trivy scan in container..."'
+      - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /root/.cache:/root/.cache aquasec/trivy:${TRIVY_VERSION} image --no-progress --exit-code 1 --severity ${FAIL_SEVERITIES} "$IMAGE_URI"
 
   post_build:
     commands:
