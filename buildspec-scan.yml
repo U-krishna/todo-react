@@ -11,9 +11,8 @@ phases:
     commands:
       - 'echo "Scan phase started on $(date)"'
       - aws --version
-      - yum install -y wget
-      - wget -q https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb
-      - dpkg -i trivy_${TRIVY_VERSION}_Linux-64bit.deb
+      - curl -LO https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.rpm
+      - rpm -i trivy_${TRIVY_VERSION}_Linux-64bit.rpm
       - trivy --version
 
   pre_build:
