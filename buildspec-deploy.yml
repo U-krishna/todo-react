@@ -3,50 +3,43 @@ version: 0.2
 env:
   variables:
     AWS_DEFAULT_REGION: "us-east-1"
-    AWS_ACCOUNT_ID: "022112164130"
-    IMAGE_REPO_NAME: "todo-react"
+    EKS_CLUSTER_NAME: "todo-eks-cluster"
+    K8S_NAMESPACE: "default"
+    K8S_DEPLOYMENT_NAME: "todo-react"
+    K8S_CONTAINER_NAME: "todo-react"
+    K8S_SERVICE_NAME: "todo-react-service"
 
 phases:
   install:
     commands:
-      - 'echo "Build phase started on $(date)"'
+      - 'echo "Deploy phase started on $(date)"'
       - aws --version
-      - docker version
-      - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
-      - export COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - export IMAGE_TAG=${COMMIT_HASH:=latest}
-      - 'echo "Repository URI: $REPOSITORY_URI"'
-      - 'echo "Image tag: $IMAGE_TAG"'
+      - kubectl version --client
 
   pre_build:
     commands:
-      - 'echo "Logging in to Amazon ECR..."'
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
-      - 'echo "Ensuring repository exists..."'
-      - aws ecr describe-repositories --repository-names $IMAGE_REPO_NAME --region $AWS_DEFAULT_REGION || aws ecr create-repository --repository-name $IMAGE_REPO_NAME --region $AWS_DEFAULT_REGION
-      - 'echo "Preparing Docker buildx..."'
-      - docker buildx create --use --name cbuilder || true
-      - docker buildx inspect --bootstrap
+      - 'echo "Reading image metadata from previous stage..."'
+      - export IMAGE_URI=$(python3 -c "import json; print(json.load(open('imageDetail.json'))['ImageURI'])")
+      - 'echo "Image to deploy: $IMAGE_URI"'
+      - 'echo "Updating kubeconfig for EKS..."'
+      - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_DEFAULT_REGION
+      - kubectl get nodes
+      - kubectl get ns
 
   build:
     commands:
-      - 'echo "Building and pushing linux/amd64 image..."'
-      - docker buildx build --platform linux/amd64 --tag $REPOSITORY_URI:$IMAGE_TAG --tag $REPOSITORY_URI:latest --push .
+      - 'echo "Applying service manifest..."'
+      - kubectl apply -f k8s/service.yaml -n $K8S_NAMESPACE
+      - 'echo "Applying deployment manifest..."'
+      - kubectl apply -f k8s/deployment.yaml -n $K8S_NAMESPACE
+      - 'echo "Updating deployment image..."'
+      - kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_CONTAINER_NAME=$IMAGE_URI -n $K8S_NAMESPACE
+      - 'echo "Checking rollout status..."'
+      - kubectl rollout status deployment/$K8S_DEPLOYMENT_NAME -n $K8S_NAMESPACE --timeout=300s
 
   post_build:
     commands:
-      - 'echo "Build completed on $(date)"'
-      - 'echo "Generating deployment metadata..."'
-      - printf '{"ImageURI":"%s","ImageTag":"%s","RepositoryURI":"%s"}' "$REPOSITORY_URI:$IMAGE_TAG" "$IMAGE_TAG" "$REPOSITORY_URI" > imageDetail.json
-      - cat imageDetail.json
-
-artifacts:
-  files:
-    - imageDetail.json
-    - buildspec-deploy.yml
-    - k8s/**/*
-  discard-paths: no
-
-cache:
-  paths:
-    - '/root/.cache/**/*'
+      - 'echo "Deployment verification..."'
+      - kubectl get deployment $K8S_DEPLOYMENT_NAME -n $K8S_NAMESPACE
+      - kubectl get pods -n $K8S_NAMESPACE -o wide
+      - kubectl get svc $K8S_SERVICE_NAME -n $K8S_NAMESPACE
