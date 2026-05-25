@@ -10,32 +10,38 @@ env:
 phases:
   install:
     commands:
-      - 'echo "Scan phase started on $(date)"'
+      - echo "Scan phase started on $(date)"
       - aws --version
       - docker version
 
   pre_build:
     commands:
-      - 'echo "Reading image metadata..."'
+      - echo "Reading image metadata..."
       - export IMAGE_URI=$(python3 -c "import json; print(json.load(open('imageDetail.json'))['ImageURI'])")
-      - export REPOSITORY_URI=$(python3 -c "import json; print(json.load(open('imageDetail.json'))['RepositoryURI'])")
-      - 'echo "Image to scan: $IMAGE_URI"'
-      - 'echo "Logging in to Amazon ECR..."'
+      - echo "Image to scan: $IMAGE_URI"
+      - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      - docker pull aquasec/trivy:${TRIVY_VERSION}
+      - echo "Pulling Trivy from Amazon ECR Public..."
+      - docker pull public.ecr.aws/aquasecurity/trivy:${TRIVY_VERSION}
 
   build:
     commands:
+      - echo "Running Trivy scan in container..."
       - |
         docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v /root/.cache:/root/.cache \
-          aquasec/trivy:${TRIVY_VERSION} \
-          image --no-progress --scanners vuln --exit-code 1 --severity ${FAIL_SEVERITIES} "$IMAGE_URI"
+          public.ecr.aws/aquasecurity/trivy:${TRIVY_VERSION} image \
+          --no-progress \
+          --scanners vuln \
+          --db-repository public.ecr.aws/aquasecurity/trivy-db:2 \
+          --exit-code 1 \
+          --severity ${FAIL_SEVERITIES} \
+          "$IMAGE_URI"
 
   post_build:
     commands:
-      - 'echo "Trivy scan completed on $(date)"'
+      - echo "Trivy scan completed on $(date)"
 
 artifacts:
   files:
