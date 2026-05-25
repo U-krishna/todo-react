@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     AWS_DEFAULT_REGION: "us-east-1"
-    EKS_CLUSTER_NAME: "todo-eks-cluster"
+    EKS_CLUSTER_NAME: "todo-react-eks"
     K8S_NAMESPACE: "default"
     K8S_DEPLOYMENT_NAME: "todo-react"
     K8S_CONTAINER_NAME: "todo-react"
