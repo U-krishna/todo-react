@@ -43,6 +43,7 @@ phases:
 artifacts:
   files:
     - imageDetail.json
+    - buildspec-scan.yml
     - buildspec-deploy.yml
     - k8s/**/*
   discard-paths: no
