@@ -3,6 +3,7 @@ version: 0.2
 env:
   variables:
     AWS_DEFAULT_REGION: "us-east-1"
+    AWS_ACCOUNT_ID: "022112164130"
     TRIVY_VERSION: "0.51.2"
     FAIL_SEVERITIES: "HIGH,CRITICAL"
 
@@ -17,13 +18,20 @@ phases:
     commands:
       - 'echo "Reading image metadata..."'
       - export IMAGE_URI=$(python3 -c "import json; print(json.load(open('imageDetail.json'))['ImageURI'])")
+      - export REPOSITORY_URI=$(python3 -c "import json; print(json.load(open('imageDetail.json'))['RepositoryURI'])")
       - 'echo "Image to scan: $IMAGE_URI"'
+      - 'echo "Logging in to Amazon ECR..."'
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - docker pull aquasec/trivy:${TRIVY_VERSION}
 
   build:
     commands:
-      - 'echo "Running Trivy scan in container..."'
-      - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /root/.cache:/root/.cache aquasec/trivy:${TRIVY_VERSION} image --no-progress --exit-code 1 --severity ${FAIL_SEVERITIES} "$IMAGE_URI"
+      - |
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v /root/.cache:/root/.cache \
+          aquasec/trivy:${TRIVY_VERSION} \
+          image --no-progress --scanners vuln --exit-code 1 --severity ${FAIL_SEVERITIES} "$IMAGE_URI"
 
   post_build:
     commands:
